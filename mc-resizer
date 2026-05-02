@@ -12,6 +12,10 @@ WIN_ID=$(wmctrl -l | grep -E "Minecraft\*|MCSR" | awk '{print $1}' | head -n 1)
 
 [ -z "$WIN_ID" ] && exit 0
 
+STATE_FILE="${XDG_RUNTIME_DIR:-/tmp}/mc-resizer-${WIN_ID}.last-mode"
+LAST_MODE=
+[ -f "$STATE_FILE" ] && LAST_MODE=$(cat "$STATE_FILE")
+
 IS_FULLSCREEN=$(xprop -id $WIN_ID | grep _NET_WM_STATE_FULLSCREEN)
 
 eval "$(xdotool getwindowgeometry --shell "$WIN_ID" 2>/dev/null)"
@@ -72,15 +76,42 @@ center_window() {
     sleep 0.1
 }
 
+resize_fullscreen_resize() {
+    WIDTH=$1
+    HEIGHT=$2
+
+    center_window "$WIDTH" "$HEIGHT"
+    wmctrl -i -r "$WIN_ID" -b add,fullscreen
+    sleep 0.25
+    center_window "$WIDTH" "$HEIGHT"
+}
+
+set_window_mode() {
+    TARGET_MODE=$1
+    WIDTH=$2
+    HEIGHT=$3
+    OTHER_MODE=$4
+    OTHER_W=$5
+    OTHER_H=$6
+
+    if [ "$LAST_MODE" = "$OTHER_MODE" ] || is_current_size "$OTHER_W" "$OTHER_H"; then
+        resize_fullscreen_resize "$WIDTH" "$HEIGHT"
+    else
+        center_window "$WIDTH" "$HEIGHT"
+    fi
+
+    printf '%s\n' "$TARGET_MODE" > "$STATE_FILE"
+}
+
 case "$MODE" in
     cycle)
         if [ -n "$IS_FULLSCREEN" ]; then
             # Fullscreen -> Thin
-            center_window $THIN_W $THIN_H
+            set_window_mode thin $THIN_W $THIN_H wide $WIDE_W $WIDE_H
 
         elif is_current_size "$THIN_W" "$THIN_H"; then
             # Thin -> Wide
-            center_window $WIDE_W $WIDE_H
+            set_window_mode wide $WIDE_W $WIDE_H thin $THIN_W $THIN_H
 
         elif is_current_size "$WIDE_W" "$WIDE_H"; then
             # Wide -> Fullscreen
@@ -96,9 +127,12 @@ case "$MODE" in
         if [ -z "$IS_FULLSCREEN" ] && is_current_size "$THIN_W" "$THIN_H"; then
             # Thin -> Fullscreen
             wmctrl -i -r "$WIN_ID" -b add,fullscreen
+        elif [ -z "$IS_FULLSCREEN" ] && is_current_size "$WIDE_W" "$WIDE_H"; then
+            # Wide -> Thin
+            set_window_mode thin $THIN_W $THIN_H wide $WIDE_W $WIDE_H
         else
             # Fullscreen/wide/other -> Thin
-            center_window $THIN_W $THIN_H
+            set_window_mode thin $THIN_W $THIN_H wide $WIDE_W $WIDE_H
         fi
         ;;
 
@@ -106,9 +140,12 @@ case "$MODE" in
         if [ -z "$IS_FULLSCREEN" ] && is_current_size "$WIDE_W" "$WIDE_H"; then
             # Wide -> Fullscreen
             wmctrl -i -r "$WIN_ID" -b add,fullscreen
+        elif [ -z "$IS_FULLSCREEN" ] && is_current_size "$THIN_W" "$THIN_H"; then
+            # Thin -> Wide
+            set_window_mode wide $WIDE_W $WIDE_H thin $THIN_W $THIN_H
         else
             # Fullscreen/thin/other -> Wide
-            center_window $WIDE_W $WIDE_H
+            set_window_mode wide $WIDE_W $WIDE_H thin $THIN_W $THIN_H
         fi
         ;;
 
