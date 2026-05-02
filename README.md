@@ -21,9 +21,27 @@ Cycles between:
 - 1920x200 (Thin mode, centered)
 - 450x1080 (Wide mode, centered)
 
-Each key press moves to the next mode:
+Default each key press moves to the next mode:
 
 Fullscreen → Thin → Wide → Fullscreen
+
+
+Also you can give argument to the script to specific thin/wide mode:
+
+```bash
+mc-resizer thin
+```
+
+Fullscreen → Thin → Fullscreen
+
+And wide mode:
+
+```bash
+mc-resizer wide
+```
+
+Fullscreen → Wide → Fullscreen
+
 
 ## Competitive Fairness
 

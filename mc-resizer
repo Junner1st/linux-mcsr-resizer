@@ -6,6 +6,8 @@ THIN_H=267
 WIDE_W=600
 WIDE_H=1440
 
+MODE=${1:-cycle}
+
 WIN_ID=$(wmctrl -l | grep -E "Minecraft\*|MCSR" | awk '{print $1}' | head -n 1)
 
 [ -z "$WIN_ID" ] && exit 0
@@ -17,6 +19,19 @@ CURRENT_X=$X
 CURRENT_Y=$Y
 CURRENT_W=$WIDTH
 CURRENT_H=$HEIGHT
+
+is_current_size() {
+    TARGET_W=$1
+    TARGET_H=$2
+    TOLERANCE=80
+
+    DW=$(( CURRENT_W - TARGET_W ))
+    DH=$(( CURRENT_H - TARGET_H ))
+    [ "$DW" -lt 0 ] && DW=$(( -DW ))
+    [ "$DH" -lt 0 ] && DH=$(( -DH ))
+
+    [ "$DW" -le "$TOLERANCE" ] && [ "$DH" -le "$TOLERANCE" ]
+}
 
 get_monitor_geometry() {
     WIN_CENTER_X=$(( CURRENT_X + CURRENT_W / 2 ))
@@ -56,19 +71,49 @@ center_window() {
     wmctrl -i -r "$WIN_ID" -e "0,$X,$Y,$WIDTH,$HEIGHT"
     sleep 0.1
 }
-if [ -n "$IS_FULLSCREEN" ]; then
-    # Fullscreen -> Thin
-    center_window $THIN_W $THIN_H
 
-elif [ "$CURRENT_W" = "$THIN_W" ] && [ "$CURRENT_H" = "$THIN_H" ]; then
-    # Thin -> Wide
-    center_window $WIDE_W $WIDE_H
+case "$MODE" in
+    cycle)
+        if [ -n "$IS_FULLSCREEN" ]; then
+            # Fullscreen -> Thin
+            center_window $THIN_W $THIN_H
 
-elif [ "$CURRENT_W" = "$WIDE_W" ] && [ "$CURRENT_H" = "$WIDE_H" ]; then
-    # Wide -> Fullscreen
-    wmctrl -i -r "$WIN_ID" -b add,fullscreen
+        elif is_current_size "$THIN_W" "$THIN_H"; then
+            # Thin -> Wide
+            center_window $WIDE_W $WIDE_H
 
-else
-    #random
-    wmctrl -i -r "$WIN_ID" -b add,fullscreen
-fi
+        elif is_current_size "$WIDE_W" "$WIDE_H"; then
+            # Wide -> Fullscreen
+            wmctrl -i -r "$WIN_ID" -b add,fullscreen
+
+        else
+            # random
+            wmctrl -i -r "$WIN_ID" -b add,fullscreen
+        fi
+        ;;
+
+    thin)
+        if [ -z "$IS_FULLSCREEN" ] && is_current_size "$THIN_W" "$THIN_H"; then
+            # Thin -> Fullscreen
+            wmctrl -i -r "$WIN_ID" -b add,fullscreen
+        else
+            # Fullscreen/wide/other -> Thin
+            center_window $THIN_W $THIN_H
+        fi
+        ;;
+
+    wide)
+        if [ -z "$IS_FULLSCREEN" ] && is_current_size "$WIDE_W" "$WIDE_H"; then
+            # Wide -> Fullscreen
+            wmctrl -i -r "$WIN_ID" -b add,fullscreen
+        else
+            # Fullscreen/thin/other -> Wide
+            center_window $WIDE_W $WIDE_H
+        fi
+        ;;
+
+    *)
+        echo "Usage: mc-resizer [thin|wide]" >&2
+        exit 1
+        ;;
+esac
