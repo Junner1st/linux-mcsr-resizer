@@ -9,7 +9,6 @@ WIDE_H=1440
 MODE=${1:-cycle}
 
 WIN_ID=$(wmctrl -l | grep -E "Minecraft\*|MCSR" | awk '{print $1}' | head -n 1)
-
 [ -z "$WIN_ID" ] && exit 0
 
 STATE_FILE="${XDG_RUNTIME_DIR:-/tmp}/mc-resizer-${WIN_ID}.last-mode"
@@ -25,12 +24,12 @@ CURRENT_W=$WIDTH
 CURRENT_H=$HEIGHT
 
 is_current_size() {
-    TARGET_W=$1
-    TARGET_H=$2
-    TOLERANCE=80
+    local TARGET_W=$1
+    local TARGET_H=$2
+    local TOLERANCE=80
 
-    DW=$(( CURRENT_W - TARGET_W ))
-    DH=$(( CURRENT_H - TARGET_H ))
+    local DW=$(( CURRENT_W - TARGET_W ))
+    local DH=$(( CURRENT_H - TARGET_H ))
     [ "$DW" -lt 0 ] && DW=$(( -DW ))
     [ "$DH" -lt 0 ] && DH=$(( -DH ))
 
@@ -60,13 +59,13 @@ get_monitor_geometry() {
 }
 
 center_window() {
-    WIDTH=$1
-    HEIGHT=$2
+    local WIDTH=$1
+    local HEIGHT=$2
 
     read -r MON_X MON_Y MON_W MON_H < <(get_monitor_geometry)
 
-    X=$(( MON_X + (MON_W - WIDTH) / 2 ))
-    Y=$(( MON_Y + (MON_H - HEIGHT) / 2 ))
+    local X=$(( MON_X + (MON_W - WIDTH) / 2 ))
+    local Y=$(( MON_Y + (MON_H - HEIGHT) / 2 ))
 
     wmctrl -i -r "$WIN_ID" -b remove,fullscreen
     sleep 0.15
@@ -76,26 +75,34 @@ center_window() {
     sleep 0.1
 }
 
-resize_fullscreen_resize() {
-    WIDTH=$1
-    HEIGHT=$2
+refresh_window_focus() {
+    local ROOT_ID
+
+    ROOT_ID=$(xwininfo -root | awk '/Window id:/ {print $4}')
+    [ -n "$ROOT_ID" ] && xdotool windowfocus "$ROOT_ID"
+    sleep 0.02
+    xdotool windowactivate --sync "$WIN_ID"
+    xdotool windowfocus --sync "$WIN_ID"
+}
+
+resize_focus_refresh() {
+    local WIDTH=$1
+    local HEIGHT=$2
 
     center_window "$WIDTH" "$HEIGHT"
-    wmctrl -i -r "$WIN_ID" -b add,fullscreen
-    sleep 0.25
-    center_window "$WIDTH" "$HEIGHT"
+    refresh_window_focus
 }
 
 set_window_mode() {
-    TARGET_MODE=$1
-    WIDTH=$2
-    HEIGHT=$3
-    OTHER_MODE=$4
-    OTHER_W=$5
-    OTHER_H=$6
+    local TARGET_MODE=$1
+    local WIDTH=$2
+    local HEIGHT=$3
+    local OTHER_MODE=$4
+    local OTHER_W=$5
+    local OTHER_H=$6
 
     if [ "$LAST_MODE" = "$OTHER_MODE" ] || is_current_size "$OTHER_W" "$OTHER_H"; then
-        resize_fullscreen_resize "$WIDTH" "$HEIGHT"
+        resize_focus_refresh "$WIDTH" "$HEIGHT"
     else
         center_window "$WIDTH" "$HEIGHT"
     fi
